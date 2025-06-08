@@ -1,0 +1,10 @@
+Flask
+Flask-SQLAlchemy
+Pillow
+pytesseract
+opencv-python-headless
+pdf2image
+python-docx
+reportlab
+Werkzeug
+gunicorn # For production deployment

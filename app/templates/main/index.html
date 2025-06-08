@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Files - OCR System{% endblock %}
+
+{% block content %}
+<div class="text-center">
+    <h1>Upload Files for OCR</h1>
+    <p class="lead">Upload single or multiple files (PNG, JPG, PDF) to extract text.</p>
+</div>
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form action="{{ url_for('main.upload_files') }}" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="files" class="form-label"><strong>Select Files</strong></label>
+                        <input class="form-control" type="file" name="files[]" id="files" multiple required>
+                        <div class="form-text">Supported formats: PNG, JPG, PDF. Max size: 32MB.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="language" class="form-label"><strong>OCR Language</strong></label>
+                        <select class="form-select" id="language" name="language">
+                            <option value="eng" selected>English</option>
+                            <option value="fra">French</option>
+                            <option value="swa">Swahili</option>
+                            <!-- Add other tesseract languages as needed -->
+                        </select>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-cloud-upload"></i> Upload and Process
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

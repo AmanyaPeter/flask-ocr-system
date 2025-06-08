@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}OCR Results{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>OCR Results</h1>
+    <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Process More Files
+    </a>
+</div>
+
+<div class="accordion" id="resultsAccordion">
+    {% for result in results %}
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="heading-{{ loop.index0 }}">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ loop.index0 }}" aria-expanded="true" aria-controls="collapse-{{ loop.index0 }}">
+                <strong>File: {{ result.filename }}</strong> <span class="badge bg-success ms-2">Complete</span>
+            </button>
+        </h2>
+        <div id="collapse-{{ loop.index0 }}" class="accordion-collapse collapse show" aria-labelledby="heading-{{ loop.index0 }}" data-bs-parent="#resultsAccordion">
+            <div class="accordion-body">
+                <div class="mb-3">
+                    <strong>Download as:</strong>
+                    <a href="{{ url_for('main.download_file', job_id=job_id, file_index=loop.index0, file_format='txt') }}" class="btn btn-sm btn-outline-primary">.txt</a>
+                    <a href="{{ url_for('main.download_file', job_id=job_id, file_index=loop.index0, file_format='docx') }}" class="btn btn-sm btn-outline-primary">.docx</a>
+                    <a href="{{ url_for('main.download_file', job_id=job_id, file_index=loop.index0, file_format='pdf') }}" class="btn btn-sm btn-outline-primary">Searchable .pdf</a>
+                </div>
+                
+                {% for page in result.pages %}
+                <div class="card mb-3">
+                    <div class="card-header">Page {{ page.page_num }}</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Original Preview</h5>
+                                <img src="{{ url_for('static', filename=page.preview_image) }}" class="img-fluid border rounded" alt="Page preview">
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Extracted Text</h5>
+                                <div class="ocr-text-box border rounded p-3 bg-light">
+                                    <pre>{% for i in range(page.ocr_data.text | length) %}{% if page.ocr_data.conf[i] | int > 0 and page.ocr_data.conf[i] | int < 60 %}<mark title="Confidence: {{ page.ocr_data.conf[i] }}%">{{ page.ocr_data.text[i] }}</mark>{% else %}{{ page.ocr_data.text[i] }}{% endif %}{% if page.ocr_data.text[i] %} {% endif %}{% endfor %}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

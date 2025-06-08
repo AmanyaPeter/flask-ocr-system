@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Upload Logs</h1>
+    <a href="{{ url_for('admin.export_logs') }}" class="btn btn-success">
+        <i class="bi bi-file-earmark-spreadsheet"></i> Export to CSV
+    </a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th scope="col">#ID</th>
+                <th scope="col">Filename</th>
+                <th scope="col">Timestamp (UTC)</th>
+                <th scope="col">Status</th>
+                <th scope="col">Language</th>
+                <th scope="col">Pages</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <th scope="row">{{ log.id }}</th>
+                <td>{{ log.filename }}</td>
+                <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    {% if 'Error' in log.status %}
+                        <span class="badge bg-danger">{{ log.status }}</span>
+                    {% elif log.status == 'Complete' %}
+                        <span class="badge bg-success">{{ log.status }}</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">{{ log.status }}</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge bg-secondary">{{ log.language }}</span></td>
+                <td>{{ log.pages_processed }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="text-center">No logs found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
