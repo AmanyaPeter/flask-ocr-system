@@ -2,7 +2,7 @@ Flask
 Flask-SQLAlchemy
 Pillow
 pytesseract
-opencv-python
+opencv-python-headless
 pdf2image
 python-docx
 reportlab
