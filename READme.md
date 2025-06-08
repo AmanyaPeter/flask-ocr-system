@@ -1,11 +1,11 @@
-Got it. I’ll review the contents of the GitHub repository at `https://github.com/AmanyaPeter/flask-ocr-system.git` to explain how the application works and identify any bugs or issues that might be preventing it from running correctly.
+This explains how the application works and identify any bugs or issues that might prevent it from running correctly.
 
 I’ll follow up shortly with a summary of the app’s structure, how each part functions, and any errors or improvements I find.
 
 
 # Flask OCR System Overview
 
-The **flask-ocr-system** repo implements a web app for OCR (Optical Character Recognition) using Python’s Flask framework.  In broad strokes, the app lets a user upload an image, runs an OCR engine on it, and returns the extracted text.  For example, the core logic is similar to this Flask pattern: check `request.files` for an uploaded image, read it into memory, preprocess it (grayscale, threshold, noise removal), then call `pytesseract.image_to_string()` to get the text. The app’s API endpoint (e.g. `@app.route('/ocr', methods=['POST'])`) handles the upload and returns a JSON response containing the OCR text. Internally it uses OpenCV (`cv2`), NumPy, Pillow (`PIL.Image`), and pytesseract (Tesseract’s Python wrapper) to do the image processing and text extraction.
+The **flask-ocr-system**  implements a web app for OCR (Optical Character Recognition) using Python’s Flask framework.  In broad strokes, the app lets a user upload an image, runs an OCR engine on it, and returns the extracted text.  For example, the core logic is similar to this Flask pattern: check `request.files` for an uploaded image, read it into memory, preprocess it (grayscale, threshold, noise removal), then call `pytesseract.image_to_string()` to get the text. The app’s API endpoint (e.g. `@app.route('/ocr', methods=['POST'])`) handles the upload and returns a JSON response containing the OCR text. Internally it uses OpenCV (`cv2`), NumPy, Pillow (`PIL.Image`), and pytesseract (Tesseract’s Python wrapper) to do the image processing and text extraction.
 
 **Key components:**
 
