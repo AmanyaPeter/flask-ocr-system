@@ -1,0 +1,76 @@
+## Utilizing OCR Confidence Scores for Enhanced User Feedback
+
+The application currently captures detailed OCR data, including word-level confidence scores, via `pytesseract.image_to_data(..., output_type=Output.DICT)`. This rich information is stored within the `results['pages'][...]['ocr_data']` structure. However, this detailed data, particularly the confidence scores, is not yet fully leveraged to provide nuanced feedback to the user about the OCR output quality.
+
+### Current Data Handling
+
+*   **Data Collection:** The `get_ocr_data` function correctly retrieves a dictionary (`ocr_data`) containing lists for recognized 'text', 'conf' (confidence scores), 'left', 'top', 'width', 'height' (bounding box coordinates), and other structural information for each detected word or text segment.
+*   **Data Storage:** The full `ocr_data` dictionary is saved per page in the `results.json` file.
+*   **Primary Text Display:** The main text shown to the user and used in downloads is an aggregation: `" ".join(ocr_data['text']).strip()`. This provides the full text but loses the word-specific confidence context in its direct presentation.
+
+### Proposals for Leveraging Confidence Scores
+
+The availability of word-level confidence scores (and bounding boxes) opens up opportunities to significantly improve the user experience by visually indicating the reliability of different parts of the OCRed text.
+
+1.  **Visual Highlighting of Low-Confidence Words in Text Display:**
+    *   **Concept:** When displaying the OCR results (e.g., in the `results.html` template), iterate through the words and their corresponding confidence scores from `ocr_data`. If a word's confidence is below a predefined threshold (e.g., 80%), it can be visually distinguished.
+    *   **Implementation Idea (Conceptual for `results.html`):**
+        *   The backend would pass the full `ocr_data` (or a processed version of it containing words and confidences) to the template.
+        *   The template rendering logic (e.g., Jinja2) would loop through each word.
+        *   Words could be wrapped in `<span>` tags with specific CSS classes based on their confidence level.
+        *   Example:
+            ```html
+            {% for page in results.pages %}
+                <div class="ocr-page-text">
+                    {% for i in range(page.ocr_data.text | length) %}
+                        {% set word = page.ocr_data.text[i] %}
+                        {% set confidence = page.ocr_data.conf[i] | int %}
+                        {% if word.strip() %} {# Only process actual words #}
+                            {% if confidence != -1 and confidence < 80 %} {# -1 is often for non-word elements or skipped regions #}
+                                <span class="low-confidence-word" title="Confidence: {{ confidence }}%">{{ word }}</span>
+                            {% else %}
+                                <span>{{ word }}</span>
+                            {% endif %}
+                            {{ " " }} {# Add space between words #}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endfor %}
+            ```
+        *   **CSS Styling:**
+            ```css
+            .low-confidence-word {
+                color: red; /* Or orange */
+                text-decoration: underline dotted; /* Or background-color */
+            }
+            .low-confidence-word:hover {
+                cursor: help;
+            }
+            ```
+    *   **Benefits:** This immediately draws the user's attention to parts of the text that Tesseract was less certain about, guiding them to areas that may require manual review and correction.
+
+2.  **Overall Confidence Metrics (Page/Document):**
+    *   **Concept:** Calculate and display an average confidence score for each page or for the entire document.
+    *   **Calculation:** This could be a simple average of all word confidences (ignoring -1 values, which often represent structural elements or empty spaces rather than actual word OCR attempts). More sophisticated metrics could weigh words by their length or importance.
+    *   **Benefits:** Provides a quick, high-level understanding of the overall quality.
+    *   **Caveat:** While easy to compute, an overall score can sometimes mask localized areas of very poor OCR. Word-level highlighting is generally more actionable for users.
+
+3.  **Interactive Highlighting on Preview Image (Advanced):**
+    *   **Concept:** Use the bounding box information (`left`, `top`, `width`, `height`) in conjunction with confidence scores to draw boxes or overlays directly onto the preview image. Low-confidence regions could be highlighted.
+    *   **Implementation Idea:**
+        *   This would require JavaScript on the client-side.
+        *   The `ocr_data` (including bounding boxes and confidences) would be passed to the frontend.
+        *   A library like Fabric.js or even custom HTML/CSS overlays could be used to draw rectangles on the image.
+        *   When a user hovers over a highlighted box, the corresponding text and its confidence score could be shown.
+    *   **Benefits:** Provides a very direct visual link between the original document's appearance and the OCR output's reliability. This is particularly useful for complex layouts or noisy images.
+
+4.  **Confidence Threshold Configuration:**
+    *   Allow users (perhaps via an advanced setting) to define the threshold below which words are highlighted. Different use cases might tolerate different levels of OCR uncertainty.
+
+### How This Helps Users
+
+*   **Guided Proofreading:** Users can focus their manual verification efforts on the parts of the text most likely to contain errors, saving significant time.
+*   **Increased Trust:** Providing transparency about OCR certainty helps users understand the system's limitations and trust its output more when confidence is high.
+*   **Informed Decisions:** Users can make more informed decisions about how to use the OCRed text based on its perceived accuracy.
+
+By making use of the already collected confidence scores, the application can provide a much richer and more helpful experience for users, enabling them to work with OCR results more efficiently and effectively.

@@ -1,0 +1,63 @@
+## Optimizing Tesseract OCR with Page Segmentation Modes (PSM) and OCR Engine Modes (OEM)
+
+The `get_ocr_data` function in `app/utils.py` currently uses `pytesseract.image_to_data` with default settings for Page Segmentation Mode (PSM) and OCR Engine Mode (OEM). Explicitly setting these parameters based on the input image characteristics can significantly improve OCR accuracy and performance.
+
+### Page Segmentation Modes (PSM)
+
+Tesseract's PSM setting dictates how it analyzes the layout of the page. The `--psm N` option is used, where `N` can be one of the following:
+
+*   **`0`: Orientation and script detection (OSD) only.**
+    *   Purpose: Detects the script (e.g., Latin, Cyrillic) and orientation of the text without performing full OCR. Useful as a preliminary step.
+*   **`1`: Automatic page segmentation with OSD.**
+    *   Purpose: Fully automatic page analysis, including OSD. Tesseract attempts to understand the complete page layout.
+*   **`2`: Automatic page segmentation, but no OSD, or OCR. (Currently not implemented)**
+    *   Purpose: Intended for layout analysis only, without performing OCR.
+*   **`3`: Fully automatic page segmentation, but no OSD. (Default)**
+    *   Purpose: This is Tesseract's default mode. It performs full page segmentation (identifying paragraphs, lines, words) but assumes correct orientation and script.
+*   **`4`: Assume a single column of text of variable sizes.**
+    *   Purpose: Use when the image contains a single column of text, like a typical book page or a narrow document.
+*   **`5`: Assume a single uniform block of vertically aligned text.**
+    *   Purpose: For text that is arranged vertically, such as some East Asian languages.
+*   **`6`: Assume a single uniform block of text.**
+    *   Purpose: Ideal for images that contain a single, dense block of text, like a sign or a label, or a well-defined paragraph.
+*   **`7`: Treat the image as a single text line.**
+    *   Purpose: When the input image is known to contain only one line of text.
+*   **`8`: Treat the image as a single word.**
+    *   Purpose: When the input image contains only a single word.
+*   **`9`: Treat the image as a single word in a circle.**
+    *   Purpose: Specific use case for words enclosed in a circle.
+*   **`10`: Treat the image as a single character.**
+    *   Purpose: When the input image contains only a single character.
+*   **`11`: Sparse text. Find as much text as possible in no particular order.**
+    *   Purpose: Useful for images with scattered text elements, like posters or images with overlaid text.
+*   **`12`: Sparse text with OSD.**
+    *   Purpose: Similar to PSM 11 but includes OSD.
+*   **`13`: Raw line. Treat the image as a single text line, bypassing Tesseract-specific hacks.**
+    *   Purpose: A more direct approach for single lines, potentially avoiding some internal Tesseract processing that might not be suitable for all cases.
+
+**Why PSM matters:** Choosing the correct PSM helps Tesseract make better assumptions about the structure of the text on the page. For example, if you're OCRing a receipt (often a single column), PSM 4 might be better than the default PSM 3. If you're OCRing a single line from an image, PSM 7 will be much more efficient and potentially more accurate than trying to segment a full page. Incorrect PSM can lead to jumbled text, missed lines, or poor recognition.
+
+### OCR Engine Modes (OEM)
+
+Tesseract has evolved, and it now includes multiple OCR engines. The `--oem N` option allows you to choose which engine to use:
+
+*   **`0`: Original Tesseract only (Legacy Engine).**
+    *   Purpose: Uses the older engine from Tesseract 3 and earlier. This engine works by recognizing character patterns. It might be faster for some simple cases or specific languages where the LSTM engine is not well-trained, but generally less accurate than the LSTM engine for most tasks.
+*   **`1`: Neural nets LSTM only.**
+    *   Purpose: Uses the newer Long Short-Term Memory (LSTM) neural network engine introduced in Tesseract 4. This engine is generally more accurate, especially for complex scripts and languages. It focuses on line recognition. This is often the recommended mode for best accuracy.
+*   **`2`: Tesseract + LSTM (Combined).**
+    *   Purpose: Uses both the legacy and LSTM engines, and combines their results. This can sometimes provide a slight accuracy boost but is typically slower than using LSTM only.
+*   **`3`: Default, based on what is available.**
+    *   Purpose: Tesseract attempts to use the "best" available engine. If LSTM models are present, it will typically default to the LSTM engine (OEM 1).
+
+**Why OEM matters:** The LSTM engine (OEM 1) is generally the most accurate for the majority of use cases and languages, as it leverages modern neural network techniques. The legacy engine (OEM 0) might be considered if speed is paramount over accuracy for very simple, clear documents, or if encountering issues with the LSTM engine for a specific language/font. OEM 3 is a safe default, but explicitly setting OEM 1 is common practice when aiming for the highest accuracy with modern Tesseract versions.
+
+### Improving OCR Results
+
+By carefully selecting the PSM based on the document's layout (e.g., single column, single line, sparse text) and choosing the appropriate OEM (usually LSTM for best accuracy), the OCR process can be made more robust and yield more accurate text extraction. For instance:
+
+*   For a scanned page of a book: `--psm 1` (if OSD is needed) or `--psm 3` or `--psm 4` (if known to be single column) with `--oem 1`.
+*   For a single line cropped from an image: `--psm 7 --oem 1`.
+*   For an image with randomly placed words: `--psm 11 --oem 1`.
+
+In the context of `app/utils.py`, the `get_ocr_data` function could be enhanced to accept `psm` and `oem` parameters, allowing the calling function (`process_file`) to pass appropriate values based on heuristics, user input, or further analysis of the image. This would provide a more flexible and potentially more accurate OCR pipeline.

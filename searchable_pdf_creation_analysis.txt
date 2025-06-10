@@ -1,0 +1,51 @@
+## Analysis of Searchable PDF Creation in `app/utils.py`
+
+The `create_downloadable_file` function in `app/utils.py` is responsible for generating output files in various formats, including searchable PDFs. This analysis focuses on the PDF creation aspect.
+
+### Current Implementation
+
+*   **Tool Used:** Searchable PDFs are created using `pytesseract.image_to_pdf_or_hocr(image_path, extension='pdf', lang=...)`. This function takes an image and adds an invisible text layer derived from OCR, making the PDF text searchable.
+*   **Process:** The function iterates through each page object in the `results['pages']` list. For each page, it constructs the path to an image file (which was previously saved during the `process_file` stage) and calls `pytesseract.image_to_pdf_or_hocr` to generate a single-page searchable PDF. These individual PDF byte streams are then concatenated to form the final multi-page PDF.
+
+### Key Observations and Recommendations
+
+1.  **Language Parameter (`lang`):**
+    *   **Issue:** The most critical finding is that the `lang` parameter in the `pytesseract.image_to_pdf_or_hocr` call is **hardcoded to `'eng'`**:
+      ```python
+      pdf_bytes += pytesseract.image_to_pdf_or_hocr(original_image_path, extension='pdf', lang='eng') # Use same lang as OCR
+      ```
+    *   **Impact:** This means that regardless of the language selected by the user for OCR processing (e.g., 'fra', 'deu'), the text layer in the searchable PDF will always be generated assuming English. This will lead to incorrect searchable text for non-English documents, significantly diminishing the utility of the searchable PDF feature for those languages. The comment `# Use same lang as OCR` is present but not acted upon in the code.
+    *   **Recommendation:** The `lang` parameter for `image_to_pdf_or_hocr` must be dynamic. The `process_file` function takes a `lang` argument, which is used for `get_ocr_data`. This same `lang` value should be stored in the `results` object (perhaps at the top level, e.g., `results['lang']`) and then accessed in `create_downloadable_file` to be passed to `image_to_pdf_or_hocr`.
+
+    *   **Example Modification (Conceptual):**
+        *   In `process_file`:
+          ```python
+          results = {'filename': filename, 'pages': [], 'lang': lang} # Store lang
+          ```
+        *   In `create_downloadable_file`:
+          ```python
+          ocr_lang = results.get('lang', 'eng') # Get lang, default to 'eng' if not found
+          pdf_bytes += pytesseract.image_to_pdf_or_hocr(original_image_path, extension='pdf', lang=ocr_lang)
+          ```
+
+2.  **Image Path Construction:**
+    *   **Current Path:** `original_image_path = os.path.join('static', page['preview_image'])`
+    *   **Analysis:**
+        *   `page['preview_image']` is populated in `process_file` as, for example, `processed/preview_page_1_mydoc.pdf.png`.
+        *   The resulting `original_image_path` becomes `static/processed/preview_page_1_mydoc.pdf.png`.
+        *   The images are saved in `process_file` using `os.path.join('static', preview_path)`, which matches this structure (e.g., `static/processed/...`).
+    *   **Assessment:** This path construction is consistent and appears correct, assuming that the `static/processed/` directory is the intended and accessible location for these images when `create_downloadable_file` is called.
+
+3.  **Path Management Best Practices:**
+    *   **Clarity:** While the current path joining works, using `Path` objects from Python's `pathlib` module can often lead to more readable and maintainable path manipulations, especially when dealing with multiple path segments or absolute/relative paths.
+    *   **Configuration:** For larger applications, base paths (like 'static' or a dedicated 'temp_files_for_pdf_creation' directory) could be managed via configuration settings rather than being hardcoded directly in multiple places in the functions. This makes it easier to change storage locations if needed.
+    *   **Intermediate Files:** The preview images stored in `static/processed/` serve a dual purpose: as previews in the UI and as inputs for searchable PDF generation. This is efficient. If these files were purely intermediate (i.e., only for PDF generation and not for UI display), they might be better stored in a temporary directory that is cleaned up after processing to avoid cluttering the `static` directory. However, given their current dual use, `static/processed/` is a reasonable location.
+    *   **Error Handling:** Ensure that file operations (reading images for PDF generation) include error handling (e.g., `try-except FileNotFoundError`) in case an image file is unexpectedly missing.
+
+### Summary of Recommendations
+
+*   **Critical:** Modify the `create_downloadable_file` function to use the dynamic OCR language parameter (`lang`) when calling `pytesseract.image_to_pdf_or_hocr` instead of the hardcoded `'eng'`. This involves passing the `lang` from `process_file` through the `results` object.
+*   **Consideration:** For enhanced robustness and maintainability, consider using `pathlib` for path manipulations and centralizing base path configurations if the application grows in complexity.
+*   **Review:** Ensure that the lifecycle of the preview images is appropriate. If they are only needed temporarily for PDF generation, a temporary location might be better than `static/processed/`. However, their current use as UI previews justifies their location.
+
+Addressing the language parameter is the most pressing improvement needed for the searchable PDF feature to function correctly for all supported languages.
