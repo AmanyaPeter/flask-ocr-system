@@ -1,6 +1,7 @@
 from . import db
 from datetime import datetime
 
+
 class UploadLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(200), nullable=False)
@@ -10,4 +11,4 @@ class UploadLog(db.Model):
     pages_processed = db.Column(db.Integer, default=0)
 
     def __repr__(self):
-        return f'<UploadLog {self.filename}>'
+        return f"<UploadLog {self.filename}>"

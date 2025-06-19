@@ -5,11 +5,7 @@ from flask import Blueprint
 #    - __name__ tells the blueprint where it's defined.
 #    - template_folder specifies that this blueprint will look for its
 #      templates in a specific sub-folder. This is great for organization.
-main_bp = Blueprint(
-    'main',
-    __name__,
-    template_folder='../templates/main'
-)
+main_bp = Blueprint("main", __name__, template_folder="../templates/main")
 
 # 2. Import the routes at the bottom.
 #    This is crucial to connect the routes defined in routes.py
