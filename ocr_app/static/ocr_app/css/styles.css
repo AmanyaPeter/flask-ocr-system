@@ -1,0 +1,15 @@
+/* Custom styles for OCR App */
+body {
+    font-family: sans-serif;
+}
+
+.ocr-text-box {
+    min-height: 150px; /* Example style */
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+mark {
+    background-color: yellow; /* Example for low-confidence text */
+    padding: 0.2em;
+}

@@ -65,21 +65,38 @@ def upload_files(request):
                 log = UploadLog(filename=filename, status="Processing", language=language)
                 log.save()
 
-                try:
-                    result_data = process_file(actual_disk_path, lang=language) # process_file needs the actual disk path
-                    result_data["original_filename"] = filename
-                    # Ensure preview_image_path is relative to MEDIA_ROOT (already handled by ocr_utils)
-                    all_results_data.append(result_data)
+                file_processing_result = None # To store result or error info
 
+                try:
+                    # Process the file
+                    processed_data_from_util = process_file(actual_disk_path, lang=language)
+
+                    file_processing_result = processed_data_from_util
+                    file_processing_result["original_filename"] = filename
+                    file_processing_result["status"] = "Complete" # Explicitly set status for this entry
+                    file_processing_result["lang"] = language
+
+
+                    # Update log
                     log.status = "Complete"
-                    log.pages_processed = result_data.get("page_count", 0)
+                    log.pages_processed = processed_data_from_util.get("page_count", 0)
                     log.save()
                     messages.success(request, f"Successfully processed {filename}.")
 
                 except Exception as e:
-                    log.status = f"Error: {str(e)}"
+                    error_message_str = str(e)
+                    log.status = f"Error: {error_message_str}"
                     log.save()
-                    messages.error(request, f"An error occurred while processing {filename}: {e}")
+                    messages.error(request, f"An error occurred while processing {filename}: {error_message_str}")
+
+                    file_processing_result = {
+                        "original_filename": filename,
+                        "status": "Error",
+                        "error_message": error_message_str,
+                        "pages": [], # No pages to show if processing failed
+                        "page_count": 0,
+                        "lang": language
+                    }
                 finally:
                     # Clean up the temporarily saved uploaded file
                     if default_storage.exists(saved_file_path_full): # Check existence before deleting
@@ -87,6 +104,9 @@ def upload_files(request):
                             default_storage.delete(saved_file_path_full)
                         except Exception as del_e:
                             messages.warning(request, f"Could not delete temp file {saved_file_path_full}: {del_e}")
+
+                if file_processing_result: # Ensure it's not None
+                    all_results_data.append(file_processing_result)
             else:
                 if uploaded_file and uploaded_file.name: # Check if there's a name
                     messages.warning(request, f"File type not allowed for {uploaded_file.name}")
@@ -127,23 +147,53 @@ def show_results(request):
     with default_storage.open(results_file_path_full, "r") as f:
         results = json.load(f)
 
-    # Construct full URLs for preview images
-    for file_result in results:
-        for page in file_result.get("pages", []):
-            if page.get("preview_image_path"):
-                # Ensure that preview_image_path is treated as relative to MEDIA_ROOT
-                # os.path.join on a URL base and a potentially absolute-looking path might be tricky
-                # if settings.MEDIA_URL ends with / and page["preview_image_path"] starts with /
-                # it's better to ensure preview_image_path is always relative.
-                # Assuming PREVIEWS_DIR_NAME and filenames don't start with /
-                preview_path = page["preview_image_path"]
-                if preview_path.startswith(settings.MEDIA_URL): # If it's somehow already a full URL
-                    page["preview_image_url"] = preview_path
+    # Construct full URLs for preview images and process text tokens
+    for file_result_data in results: # 'results' is the list loaded from JSON
+        # Construct preview_image_url (existing logic)
+        for page_data in file_result_data.get("pages", []):
+            if page_data.get("preview_image_path"):
+                preview_path = page_data["preview_image_path"]
+                if preview_path.startswith(settings.MEDIA_URL):
+                    page_data["preview_image_url"] = preview_path
                 else:
-                    # Ensure no double slashes if MEDIA_URL ends with / and preview_path is not empty
                     media_url = settings.MEDIA_URL.rstrip('/')
-                    preview_path = preview_path.lstrip('/')
-                    page["preview_image_url"] = f"{media_url}/{preview_path}"
+                    preview_path_cleaned = preview_path.lstrip('/')
+                    page_data["preview_image_url"] = f"{media_url}/{preview_path_cleaned}"
+
+        # Add the processed_text_tokens logic:
+        if file_result_data.get("status") == "Complete": # Only process tokens if overall file status is Complete
+            for page_data in file_result_data.get("pages", []):
+                processed_tokens = []
+                ocr_text_list = page_data.get("ocr_data", {}).get("text", [])
+                ocr_conf_list = page_data.get("ocr_data", {}).get("conf", [])
+                min_conf_for_highlight = 60
+
+                for i, text_token in enumerate(ocr_text_list):
+                    # Ensure text_token is a string, as Tesseract can return None
+                    text_token_str = str(text_token) if text_token is not None else ""
+
+                    confidence = -1 # Default for missing or invalid confidence
+                    try:
+                        # Tesseract confidences can be strings like '95.432...' or int/float
+                        # It's safer to convert to float first, then int.
+                        confidence_val_from_list = ocr_conf_list[i]
+                        if confidence_val_from_list is not None and str(confidence_val_from_list).strip() != "":
+                            confidence = int(float(confidence_val_from_list))
+                        else: # Handle cases where confidence is None or empty string
+                            confidence = -1
+                    except (ValueError, TypeError, IndexError): # Catch various issues
+                        confidence = -1 # Keep -1 if conversion fails or index is out of bounds
+
+                    is_low_confidence = 0 <= confidence < min_conf_for_highlight # 0 is valid, -1 is not processed
+
+                    processed_tokens.append({
+                        "text": text_token_str,
+                        "conf": confidence if confidence != -1 else "N/A", # Display N/A for unprocessed
+                        "is_low": is_low_confidence
+                    })
+                page_data["processed_text_tokens"] = processed_tokens
+        # If status is "Error", the template will use file_result_data.get("error_message")
+        # which should have been set in the upload_files view.
 
     # This will render 'ocr_app/results.html'
     return render(request, "ocr_app/results.html", {"results": results, "job_id": job_id})
